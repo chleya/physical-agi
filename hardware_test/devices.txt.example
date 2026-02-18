@@ -1,0 +1,15 @@
+# 设备列表文件格式
+# 格式: ID, STM32端口, ESP32端口, 位置
+# 每行一个设备，# 开头为注释
+
+# 实验室设备
+01,COM3,COM4,Desk
+02,COM5,COM6,Shelf
+03,COM7,COM8,Lab_Bench
+
+# 备用设备
+10,COM9,COM10,Storage
+11,COM11,COM12,Storage
+
+# 示例：只测试一台设备
+01,COM3,COM4,Test
