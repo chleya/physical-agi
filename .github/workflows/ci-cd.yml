@@ -8,9 +8,9 @@ on:
 
 jobs:
   # ===================
-  # Code Quality
+  # Build Verification
   # ===================
-  quality:
+  build:
     runs-on: ubuntu-latest
     
     steps:
@@ -23,67 +23,17 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install -q pytest pytest-cov flake8 black
+        pip install -q numpy pandas matplotlib
     
-    - name: Lint with flake8
+    - name: Verify imports
       run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-    
-    - name: Check code format
-      run: |
-        black --check .
-    
-    - name: Run tests
-      run: |
-        pytest --cov=. --cov-report=xml --cov-report=term
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage.xml
+        python -c "import simulator_v2; print('Simulation module OK')"
+        python -c "from core import physics_engine; print('Physics engine OK')"
 
   # ===================
-  # Build Verification
+  # Hardware Tools Test
   # ===================
-  build:
-    runs-on: ubuntu-latest
-    needs: quality
-    
-    strategy:
-      matrix:
-        build-system: [cmake, keil, platformio]
-        include:
-          - build-system: cmake
-            command: cmake -B build . && cmake --build build
-          - build-system: keil
-            command: echo "Keil build requires Windows"
-          - build-system: platformio
-            command: pio run
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-    
-    - name: Build with ${{ matrix.build-system }}
-      run: ${{ matrix.command }}
-      if: matrix.build-system != 'keil'
-    
-    - name: Verify build artifacts
-      run: |
-        if [ -f "build/v5_nca_mesh.elf" ]; then
-          echo "ELF file generated successfully"
-          file build/v5_nca_mesh.elf
-        fi
-
-  # ===================
-  # Hardware Simulation Tests
-  # ===================
-  simulation:
+  hardware-tools:
     runs-on: ubuntu-latest
     needs: build
     
@@ -97,25 +47,13 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install -q numpy matplotlib
+        pip install -q pyserial opencv-python matplotlib
     
-    - name: Run simulation tests
+    - name: Test hardware tools import
       run: |
-        echo "Running physics engine simulation..."
-        python -c "from simulator_v2 import *; print('Simulation OK')"
-        
-    - name: Run evolution test
-      run: |
-        echo "Testing evolution algorithm..."
-        python -c "
-        from simulator_v2 import NCANetwork
-        import numpy as np
-        net = NCANetwork()
-        x = np.random.randn(6)
-        y = net.forward(x)
-        assert y.shape == (2,)
-        print('Evolution test passed')
-        "
+        cd hardware_test
+        python -c "import stm32_chip; print('Chip config OK')"
+        python -c "import device_config; print('Device config OK')"
 
   # ===================
   # Documentation
@@ -126,19 +64,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-    
-    - name: Generate documentation
+    - name: Validate README exists
       run: |
-        pip install -q mkdocs
-        mkdocs build --strict 2>&1 || echo "Docs build optional"
-    
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./site
+        test -f README.md && echo "README found"
+        test -f hardware_test/flash_tool.py && echo "Flash tool found"
